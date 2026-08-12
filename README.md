@@ -1,71 +1,108 @@
 # Workspace
 
-Hub personal y self-hosted para organizar proyectos: tareas (kanban), canvas
-libre (Excalidraw) y diagramas estructurados (draw.io).
+Personal, self-hosted hub for organizing projects: tasks (kanban), a free-form
+canvas (Excalidraw), and structured diagrams (draw.io).
 
 ## Stack
 
 - Next.js 16 (App Router) + TypeScript + Tailwind CSS
-- shadcn/ui (preset Nova, sobre Base UI) + Lucide Icons
+- shadcn/ui (Nova preset, on top of Base UI) + Lucide Icons
 - Prisma 7 + PostgreSQL (Docker)
-- `@excalidraw/excalidraw` embebido para Canvas
-- `embed.diagrams.net` embebido (iframe + postMessage) para Diagramas
+- `@excalidraw/excalidraw` embedded for Canvas
+- `embed.diagrams.net` embedded (iframe + postMessage) for Diagrams
 
-## Requisitos
+## Requirements
 
 - Node.js 20+
 - pnpm
-- Docker (para Postgres)
+- Docker (for Postgres)
 
-## Primer arranque
+## First run
 
 ```bash
-# 1. Levantar Postgres
+# 1. Start Postgres
 docker compose up -d
 
-# 2. Instalar dependencias
+# 2. Install dependencies
 pnpm install
 
-# 3. Crear el esquema en la base de datos
+# 3. Create the database schema
 pnpm exec prisma migrate dev
 
-# 4. (Opcional) cargar datos de ejemplo
+# 4. (Optional) load sample data
 pnpm db:seed
 
-# 5. Arrancar la app
+# 5. Start the app
 pnpm dev
 ```
 
-Abre [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000).
 
-## Variables de entorno
+You can also use the `Makefile`: `make dev` brings up Postgres and the app in
+the background (`make stop` / `make down` to stop them, `make logs` /
+`make status` to inspect them).
 
-Ver `.env.example`. Por defecto:
+## Environment variables
+
+See `.env.example`. By default:
 
 ```
 DATABASE_URL="postgresql://trena:trena@localhost:5433/trena?schema=public"
 ```
 
-El puerto host de Postgres es `5433` (no `5432`) para no chocar con otros
-contenedores Postgres que ya tengas corriendo localmente.
+Postgres' host port is `5433` (not `5432`) so it doesn't clash with any other
+Postgres containers you might already have running locally.
 
-Diagramas usa por defecto el embed público `https://embed.diagrams.net`. Si
-prefieres una instancia propia de draw.io self-hosted (imagen Docker
-`jgraph/drawio`), define `NEXT_PUBLIC_DRAWIO_URL` apuntando a ella.
+Diagrams defaults to the public `https://embed.diagrams.net` embed. If you'd
+rather run your own self-hosted draw.io instance (Docker image
+`jgraph/drawio`), set `NEXT_PUBLIC_DRAWIO_URL` to point at it.
 
 ## Scripts
 
-- `pnpm dev` — servidor de desarrollo
-- `pnpm build` / `pnpm start` — build y arranque en producción
-- `pnpm db:seed` — reinicia la base de datos con datos de ejemplo
-- `pnpm db:studio` — abre Prisma Studio para inspeccionar la base de datos
+- `pnpm dev` — development server
+- `pnpm build` / `pnpm start` — production build and start
+- `pnpm typecheck` / `pnpm lint` — type checking and linting
+- `pnpm test` / `pnpm test:coverage` — unit tests (Vitest)
+- `pnpm test:integration` / `pnpm test:integration:coverage` — integration tests (Vitest + real Postgres, see below)
+- `pnpm test:e2e` — e2e tests (Playwright, see below)
+- `pnpm db:seed` — resets the database with sample data
+- `pnpm db:studio` — opens Prisma Studio to inspect the database
 
-## Estructura
+## Testing
 
-- `src/app/(app)/` — pantallas con sidebar: Inicio, Tareas, Canvas, Diagramas,
-  Proyectos, Servicios
-- `src/app/canvas/[id]/` y `src/app/diagrams/[id]/` — editores a pantalla
-  completa (fuera del sidebar)
-- `src/lib/data.ts` — lecturas (Prisma)
-- `src/lib/actions.ts` — mutaciones (Server Actions)
-- `prisma/schema.prisma` — modelo de datos (Project, Task, Canvas, Diagram)
+Three layers, all running against real Postgres (no mocked Prisma) to catch
+query/migration issues before production:
+
+- **Unit** (`pnpm test` / `src/lib/**/*.test.ts`) — pure functions, no DB.
+- **Integration** (`pnpm test:integration` / `tests/integration/`) — server
+  actions and reads (`src/lib/actions.ts`, `src/lib/data.ts`) against the
+  Postgres from `docker-compose.yml`, isolated in the `test_integration`
+  schema so it never touches your dev data. Migrations are applied
+  automatically.
+- **E2E** (`pnpm test:e2e` / `e2e/`) — real user flows with Playwright against
+  a production build of their own (`next build && next start`) on port
+  `3100`, with its own `e2e` schema. Uses build+start instead of `next dev`
+  because Next.js 16 refuses to run two `next dev` servers in the same
+  project.
+
+Coverage (`pnpm test:coverage`, `pnpm test:integration:coverage`) is scoped to
+the code each layer actually exercises — `src/lib/{format,utils}.ts` for unit,
+`src/lib/{actions,data}.ts` for integration — and gated at 80%
+lines/branches/functions/statements; a run fails if it drops below that.
+
+Requires Postgres up (`make up` or `docker compose up -d`). Also available:
+`make test`, `make test-integration`, `make test-e2e`, `make test-all`.
+
+CI (`.github/workflows/ci.yml`) runs lint, typecheck, and all three test
+layers on every push/PR to `main`, each with its own Postgres service
+container.
+
+## Structure
+
+- `src/app/(app)/` — sidebar screens: Home, Tasks, Canvas, Diagrams,
+  Projects, Services
+- `src/app/canvas/[id]/` and `src/app/diagrams/[id]/` — full-screen editors
+  (outside the sidebar)
+- `src/lib/data.ts` — reads (Prisma)
+- `src/lib/actions.ts` — mutations (Server Actions)
+- `prisma/schema.prisma` — data model (Project, Task, Canvas, Diagram)

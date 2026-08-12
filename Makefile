@@ -3,7 +3,7 @@ COMPOSE := docker compose
 PID_FILE := .dev.pid
 LOG_FILE := .dev.log
 
-.PHONY: up down dev stop logs status install
+.PHONY: up down dev stop logs status install test test-integration test-e2e test-all
 
 up: ## Levanta los servicios de Docker (Postgres) en segundo plano
 	$(COMPOSE) up -d
@@ -44,3 +44,14 @@ status: ## Muestra el estado de Docker y del dev server
 
 install: ## Instala dependencias
 	$(PNPM) install
+
+test: ## Corre los unit tests (Vitest)
+	$(PNPM) test
+
+test-integration: up ## Corre los integration tests contra Postgres real (Vitest)
+	$(PNPM) test:integration
+
+test-e2e: up ## Corre los e2e tests (Playwright, build + start propios)
+	$(PNPM) test:e2e
+
+test-all: test test-integration test-e2e ## Corre toda la suite de tests
