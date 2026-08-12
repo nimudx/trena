@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma
+
+# make dev (background process)
+.dev.pid
+.dev.log
+
+# local-only assistant settings
+.claude/settings.local.json
