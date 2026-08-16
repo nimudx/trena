@@ -7,7 +7,9 @@ const isCI = !!process.env.CI;
 
 export default defineConfig({
   testDir: "./e2e",
-  globalSetup: "./e2e/global-setup.ts",
+  // DB migration/reset runs via `pretest:e2e` (see package.json), not
+  // Playwright's globalSetup: the webServer plugin starts before globalSetup
+  // does, so migrating there would race the `next build && next start` below.
   // Tests share one Postgres schema (see e2e/test-db-url.ts) with no per-test
   // isolation, so they run serially to avoid racing each other's data.
   fullyParallel: false,
