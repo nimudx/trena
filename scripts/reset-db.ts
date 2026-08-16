@@ -3,7 +3,11 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 
 async function main() {
-  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+  const databaseUrl = process.env.DATABASE_URL;
+  const schema = databaseUrl
+    ? (new URL(databaseUrl).searchParams.get("schema") ?? undefined)
+    : undefined;
+  const adapter = new PrismaPg({ connectionString: databaseUrl }, { schema });
   const prisma = new PrismaClient({ adapter });
 
   await prisma.task.deleteMany();
